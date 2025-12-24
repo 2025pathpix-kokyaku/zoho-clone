@@ -18,15 +18,21 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className={inter.className}>
-        <div className="flex h-screen overflow-hidden">
-          {/* 左側：サイドバー (固定幅) */}
-          <div className="w-64 flex-shrink-0">
-            <Sidebar />
-          </div>
+        {/* 
+           flex-col md:flex-row: スマホは縦積み、PCは横並び
+           h-screen: 画面いっぱいの高さ
+        */}
+        <div className="flex h-screen flex-col md:flex-row overflow-hidden bg-slate-50">
           
-          {/* 右側：メインエリア */}
-          {/* min-w-0 が重要です。これがないとテーブルが画面を突き破ります */}
-          <main className="flex-1 min-w-0 bg-slate-50 overflow-auto">
+          {/* サイドバー (中身でレスポンシブ制御) */}
+          <Sidebar />
+          
+          {/* 
+             メインエリア 
+             pt-16: スマホ用ヘッダーの高さ分だけ下げる
+             md:pt-0: PCでは下げない
+          */}
+          <main className="flex-1 min-w-0 overflow-auto pt-16 md:pt-0 w-full">
             {children}
           </main>
         </div>

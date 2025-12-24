@@ -2,10 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, FileText, Settings, PieChart } from 'lucide-react';
+import { useState } from 'react';
+import { LayoutDashboard, Users, FileText, Settings, PieChart, Menu, X } from 'lucide-react';
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [isOpen, setIsOpen] = useState(false); // メニューの開閉状態
 
   const menuItems = [
     { name: 'ダッシュボード', href: '/dashboard', icon: PieChart },
@@ -14,40 +16,81 @@ export default function Sidebar() {
     { name: '契約管理', href: '/contracts', icon: FileText },
   ];
 
-  return (
-    <div className="w-64 bg-slate-900 text-white h-screen flex flex-col fixed left-0 top-0 border-r border-slate-800 overflow-y-auto">
-      <div className="p-6 border-b border-slate-800 shrink-0">
-        <h1 className="text-xl font-bold tracking-wider flex items-center gap-2">
-          <span className="text-blue-500 text-2xl">●</span> My CRM
-        </h1>
-      </div>
-      
-      <nav className="flex-1 py-6 px-3 space-y-1">
-        {menuItems.map((item) => {
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive 
-                  ? 'bg-blue-600 text-white shadow-lg font-bold' 
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-              }`}
-            >
-              <item.icon size={20} />
-              <span className="font-medium">{item.name}</span>
-            </Link>
-          );
-        })}
-      </nav>
+  // メニュークリック時にスマホなら閉じる関数
+  const handleMenuClick = () => {
+    setIsOpen(false);
+  };
 
-      <div className="p-4 border-t border-slate-800 shrink-0">
-        <button className="flex items-center gap-3 text-slate-400 hover:text-white px-4 py-2 w-full transition-colors">
-          <Settings size={20} />
-          <span>設定</span>
-        </button>
+  return (
+    <>
+      {/* --- スマホ用トップバー (PCでは非表示) --- */}
+      <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-slate-900 text-white z-50 flex items-center px-4 shadow-md justify-between">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setIsOpen(true)} className="p-1 hover:bg-slate-800 rounded">
+            <Menu size={24} />
+          </button>
+          <span className="font-bold text-lg tracking-wider">My CRM</span>
+        </div>
+        {/* 右上のアイコンなどがあればここに追加 */}
       </div>
-    </div>
+
+      {/* --- 背景を暗くするオーバーレイ (スマホでメニューが開いている時のみ) --- */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      {/* --- サイドバー本体 --- */}
+      {/* 
+         mobile: fixedで画面外(-translate-x-full)に隠しておき、isOpenならスライドイン
+         desktop (md): staticで常に表示
+      */}
+      <div className={`
+        fixed top-0 left-0 h-full w-64 bg-slate-900 text-white z-50 border-r border-slate-800
+        transition-transform duration-300 ease-in-out overflow-y-auto
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'} 
+        md:translate-x-0 md:static
+      `}>
+        <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+          <h1 className="text-xl font-bold tracking-wider flex items-center gap-2">
+            <span className="text-blue-500 text-2xl">●</span> My CRM
+          </h1>
+          {/* スマホ用 閉じるボタン */}
+          <button onClick={() => setIsOpen(false)} className="md:hidden text-slate-400 hover:text-white">
+            <X size={24} />
+          </button>
+        </div>
+        
+        <nav className="flex-1 py-6 px-3 space-y-1">
+          {menuItems.map((item) => {
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={handleMenuClick} // クリックしたら閉じる
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  isActive 
+                    ? 'bg-blue-600 text-white shadow-lg font-bold' 
+                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                }`}
+              >
+                <item.icon size={20} />
+                <span className="font-medium">{item.name}</span>
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="p-4 border-t border-slate-800 mt-auto">
+          <button className="flex items-center gap-3 text-slate-400 hover:text-white px-4 py-2 w-full transition-colors">
+            <Settings size={20} />
+            <span>設定</span>
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
