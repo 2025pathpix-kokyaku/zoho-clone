@@ -8,7 +8,7 @@ import {
 } from 'recharts';
 import { TrendingUp, Users, DollarSign, Activity } from 'lucide-react';
 
-// グラフ用の色 (Pathpixカラー #92d050 をメインに、相性の良い色を設定)
+// グラフ用の色 (Pathpixカラー #92d050 をメインに設定)
 const COLORS = ['#92d050', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 export default function Dashboard() {
@@ -41,7 +41,7 @@ export default function Dashboard() {
           avgProbability: Math.round(avgProb)
         });
 
-        // グラフ用データ
+        // グラフ用データ作成
         const pMap: {[key:string]: number} = {};
         deals.forEach(d => {
           pMap[d.phase] = (pMap[d.phase] || 0) + 1;
@@ -82,21 +82,21 @@ export default function Dashboard() {
       </h1>
 
       {/* 
-         【修正点】
-         grid-cols-1 md:grid-cols-2 lg:grid-cols-4 
-         → iPad(md)では2列、PC(lg)では4列にすることで、数字がはみ出るのを防ぎます。
+         【ここを修正しました】
+         iPad（横画面）でも2列表示（md:grid-cols-2）を維持するように変更。
+         xl:grid-cols-4 とすることで、かなり大きなPC画面のときだけ4列になります。
       */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
         
         {/* カード1: 売上総額 */}
         <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-4">
-          <div className="p-3 bg-[#92d050]/20 text-[#659038] rounded-lg">
+          <div className="p-3 bg-[#92d050]/20 text-[#659038] rounded-lg shrink-0">
             <DollarSign size={24} />
           </div>
-          <div className="min-w-0">
-            <p className="text-sm text-slate-500 font-bold">予想売上総額</p>
-            {/* truncateで万が一長い場合も崩れないように */}
-            <p className="text-xl sm:text-2xl font-bold text-slate-800 truncate">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm text-slate-500 font-bold whitespace-nowrap">予想売上総額</p>
+            {/* 文字サイズを調整し、省略(...)させずに全て表示する設定に変更 */}
+            <p className="text-xl md:text-2xl font-bold text-slate-800 break-words">
               ¥{stats.totalAmount.toLocaleString()}
             </p>
           </div>
@@ -104,7 +104,7 @@ export default function Dashboard() {
 
         {/* カード2: 成約数 */}
         <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-4">
-          <div className="p-3 bg-[#92d050]/20 text-[#659038] rounded-lg">
+          <div className="p-3 bg-[#92d050]/20 text-[#659038] rounded-lg shrink-0">
             <TrendingUp size={24} />
           </div>
           <div>
@@ -115,7 +115,7 @@ export default function Dashboard() {
 
         {/* カード3: 平均確度 */}
         <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-4">
-          <div className="p-3 bg-[#92d050]/20 text-[#659038] rounded-lg">
+          <div className="p-3 bg-[#92d050]/20 text-[#659038] rounded-lg shrink-0">
             <Activity size={24} />
           </div>
           <div>
@@ -126,7 +126,7 @@ export default function Dashboard() {
 
         {/* カード4: 全案件数 */}
         <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-4">
-          <div className="p-3 bg-[#92d050]/20 text-[#659038] rounded-lg">
+          <div className="p-3 bg-[#92d050]/20 text-[#659038] rounded-lg shrink-0">
             <Users size={24} />
           </div>
           <div>
@@ -139,7 +139,7 @@ export default function Dashboard() {
       {/* グラフエリア */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         
-        {/* 左: フェーズ別案件数 (棒グラフ) */}
+        {/* 左: フェーズ別案件数 */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <h2 className="text-lg font-bold text-slate-800 mb-4 border-l-4 border-[#92d050] pl-3">フェーズ別 案件数</h2>
           <div className="h-[300px] w-full">
@@ -149,14 +149,13 @@ export default function Dashboard() {
                 <XAxis dataKey="name" tick={{fontSize: 12}} />
                 <YAxis allowDecimals={false} />
                 <Tooltip cursor={{fill: '#f1f5f9'}} />
-                {/* 棒グラフの色をコーポレートカラーに変更 */}
                 <Bar dataKey="count" name="件数" fill="#92d050" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* 右: 顧客ランク分布 (円グラフ) */}
+        {/* 右: 顧客ランク分布 */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <h2 className="text-lg font-bold text-slate-800 mb-4 border-l-4 border-[#92d050] pl-3">顧客ランク割合</h2>
           <div className="h-[300px] w-full">
