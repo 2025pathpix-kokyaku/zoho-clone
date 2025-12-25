@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/utils/supabase';
-import { Plus, FileText, Calendar, Search, X, ExternalLink, AlertCircle } from 'lucide-react';
+import { Plus, FileText, Calendar, Search, X, ExternalLink, AlertCircle, Edit, Trash2, Building } from 'lucide-react';
 
 // 型定義
 type Contract = {
@@ -34,6 +34,10 @@ export default function ContractList() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // 編集モード用
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   const initialForm = {
     deal_id: '',
@@ -81,15 +85,60 @@ export default function ContractList() {
     fetchData();
   }, []);
 
+  // --- 削除機能 ---
+  const handleDelete = async (id: number) => {
+    if (!window.confirm(`契約ID #${id} を削除してもよろしいですか？`)) return;
+    try {
+      const { error } = await supabase.from('contracts').delete().eq('id', id);
+      if (error) throw error;
+      await fetchData();
+    } catch (error: any) {
+      alert('削除エラー: ' + error.message);
+    }
+  };
+
+  // --- 編集モードを開く ---
+  const openEditModal = (contract: Contract) => {
+    setIsEditMode(true);
+    setEditingId(contract.id);
+    setFormData({
+      deal_id: contract.deal_id.toString(),
+      start_date: contract.start_date,
+      end_date: contract.end_date,
+      status: contract.status,
+      pdf_url: contract.pdf_url || ''
+    });
+    setIsModalOpen(true);
+  };
+
+  const openCreateModal = () => {
+    setIsEditMode(false);
+    setEditingId(null);
+    setFormData(initialForm);
+    setIsModalOpen(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { error } = await supabase.from('contracts').insert([{
+    
+    const payload = {
       deal_id: Number(formData.deal_id),
       start_date: formData.start_date,
       end_date: formData.end_date,
       status: formData.status,
       pdf_url: formData.pdf_url
-    }]);
+    };
+
+    let error;
+    if (isEditMode && editingId) {
+      // 更新
+      const { error: updateError } = await supabase.from('contracts').update(payload).eq('id', editingId);
+      error = updateError;
+    } else {
+      // 新規
+      const { error: insertError } = await supabase.from('contracts').insert([payload]);
+      error = insertError;
+    }
 
     if (error) {
       alert('エラー: ' + error.message);
@@ -114,14 +163,16 @@ export default function ContractList() {
       {/* ヘッダー */}
       <div className="flex justify-between items-end mb-6 shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">契約管理マスター</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+             <span className="text-[#92d050]">●</span> 契約管理マスター
+          </h1>
+          <p className="text-sm text-slate-500 mt-1 pl-6">
             有効な契約: {contracts.filter(c => c.status === '有効').length}件
           </p>
         </div>
         <button 
-          onClick={() => setIsModalOpen(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-bold shadow-sm transition-all"
+          onClick={openCreateModal}
+          className="bg-[#92d050] hover:bg-[#82c040] text-slate-900 px-4 py-2 rounded-lg flex items-center gap-2 font-bold shadow-sm transition-all"
         >
           <Plus size={18} /> 契約を登録
         </button>
@@ -134,7 +185,7 @@ export default function ContractList() {
           <input 
             type="text" 
             placeholder="契約ID、会社名、案件名で検索..." 
-            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#92d050]"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -152,6 +203,7 @@ export default function ContractList() {
                 <th className="p-4 font-semibold min-w-[250px]">顧客名 / 案件名</th>
                 <th className="p-4 font-semibold min-w-[250px]">契約期間</th>
                 <th className="p-4 font-semibold min-w-[150px]">契約書</th>
+                <th className="p-4 font-semibold min-w-[100px] text-center">操作</th>
               </tr>
             </thead>
             <tbody className="text-sm text-slate-700 divide-y divide-slate-100">
@@ -160,7 +212,7 @@ export default function ContractList() {
                 const isExpired = new Date(contract.end_date) < new Date() && contract.status === '有効';
                 
                 return (
-                  <tr key={contract.id} className="hover:bg-blue-50/50 transition-colors">
+                  <tr key={contract.id} className="hover:bg-[#f4fce8] transition-colors">
                     <td className="p-4 font-mono text-xs text-slate-500">#{contract.id}</td>
                     
                     <td className="p-4">
@@ -206,6 +258,17 @@ export default function ContractList() {
                         <span className="text-xs text-slate-300">未登録</span>
                       )}
                     </td>
+
+                    <td className="p-4 text-center">
+                      <div className="flex justify-center gap-2">
+                        <button onClick={() => openEditModal(contract)} className="p-1.5 text-slate-500 hover:text-[#659038] hover:bg-[#92d050]/20 rounded transition-colors">
+                          <Edit size={16} />
+                        </button>
+                        <button onClick={() => handleDelete(contract.id)} className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
@@ -220,12 +283,14 @@ export default function ContractList() {
         </div>
       </div>
 
-      {/* 登録モーダル */}
+      {/* 登録・編集モーダル */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in duration-200">
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-              <h2 className="text-lg font-bold text-slate-800">契約情報の登録</h2>
+              <h2 className="text-lg font-bold text-slate-800">
+                {isEditMode ? '契約情報の編集' : '契約情報の登録'}
+              </h2>
               <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded hover:bg-slate-200">
                 <X size={20} />
               </button>
@@ -238,7 +303,7 @@ export default function ContractList() {
                 <div className="relative">
                   <select 
                     required 
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2.5 bg-white focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2.5 bg-white focus:ring-2 focus:ring-[#92d050]"
                     value={formData.deal_id}
                     onChange={(e) => setFormData({...formData, deal_id: e.target.value})}
                   >
@@ -248,6 +313,7 @@ export default function ContractList() {
                         {deal.customers?.name} - {deal.title}
                       </option>
                     ))}
+                    {/* 編集時に、既に紐付いているが今はリストにない(過去の)案件も表示したい場合はここにロジックが必要ですが、今回は簡易的にリストにあるもののみとしています */}
                   </select>
                 </div>
                 {dealOptions.length === 0 && (
@@ -260,19 +326,19 @@ export default function ContractList() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-1.5">契約開始日</label>
-                  <input required type="date" className="w-full border border-slate-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-blue-500"
+                  <input required type="date" className="w-full border border-slate-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-[#92d050]"
                     value={formData.start_date} onChange={(e) => setFormData({...formData, start_date: e.target.value})} />
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-1.5">契約終了日</label>
-                  <input required type="date" className="w-full border border-slate-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-blue-500"
+                  <input required type="date" className="w-full border border-slate-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-[#92d050]"
                     value={formData.end_date} onChange={(e) => setFormData({...formData, end_date: e.target.value})} />
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-1.5">ステータス</label>
-                <select className="w-full border border-slate-300 rounded-lg px-3 py-2.5 bg-white focus:ring-2 focus:ring-blue-500"
+                <select className="w-full border border-slate-300 rounded-lg px-3 py-2.5 bg-white focus:ring-2 focus:ring-[#92d050]"
                   value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})}
                 >
                   <option value="有効">有効</option>
@@ -286,7 +352,7 @@ export default function ContractList() {
                 <label className="block text-sm font-bold text-slate-700 mb-1.5">契約書PDFのリンク (URL)</label>
                 <div className="relative">
                   <FileText size={16} className="absolute left-3 top-3 text-slate-400" />
-                  <input type="text" className="w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  <input type="text" className="w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#92d050]"
                     placeholder="https://example.com/contract.pdf"
                     value={formData.pdf_url} onChange={(e) => setFormData({...formData, pdf_url: e.target.value})} />
                 </div>
@@ -294,7 +360,9 @@ export default function ContractList() {
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-50 mt-4">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">キャンセル</button>
-                <button type="submit" className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow-md">登録する</button>
+                <button type="submit" className="px-5 py-2.5 bg-[#92d050] text-slate-900 rounded-lg hover:bg-[#82c040] font-bold shadow-md">
+                   {isEditMode ? '変更を保存' : '登録する'}
+                </button>
               </div>
             </form>
           </div>

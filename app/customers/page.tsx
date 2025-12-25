@@ -35,7 +35,7 @@ export default function CustomerList() {
   const [editingId, setEditingId] = useState<number | null>(null);
   
   const initialFormState = {
-    customer_code: '',
+    customer_code: '', // ここは自動入力されるので空でOK
     name: '',
     type: '企業',
     contact_person: '',
@@ -114,11 +114,41 @@ export default function CustomerList() {
     setIsModalOpen(true);
   };
 
+  // --- ID自動生成ロジック (R712251 形式) ---
+  const generateNewId = async () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    const day = now.getDate().toString().padStart(2, '0');
+    
+    // 令和計算 (2025年 - 2018 = 7)
+    const reiwa = year - 2018;
+    const prefix = `R${reiwa}${month}${day}`;
+
+    // 今日すでに何件登録されているかDBを検索
+    const { count } = await supabase
+      .from('customers')
+      .select('*', { count: 'exact', head: true })
+      .ilike('customer_code', `${prefix}%`); // R71225...で始まるものをカウント
+    
+    // 現在の件数 + 1 を連番にする
+    const nextNum = (count || 0) + 1;
+    return `${prefix}${nextNum}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    let codeToSave = formData.customer_code;
+    
+    // 新規登録かつコードが空の場合、新しいIDを生成する
+    if (!isEditMode && !codeToSave) {
+      codeToSave = await generateNewId();
+    }
+
     const cleanData = {
       ...formData,
-      customer_code: formData.customer_code || `C-${Date.now().toString().slice(-6)}`,
+      customer_code: codeToSave,
       registration_date: formData.registration_date || new Date().toISOString().split('T')[0],
       last_contact_date: formData.last_contact_date === '' ? null : formData.last_contact_date,
     };
@@ -152,10 +182,8 @@ export default function CustomerList() {
     <div className="p-4 h-full flex flex-col max-w-7xl mx-auto w-full">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4 shrink-0">
         <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-          {/* アイコン色変更 */}
           <Building size={24} className="text-[#92d050]"/> 顧客マスター一覧
         </h1>
-        {/* ボタン色変更 (背景#92d050, 文字黒) */}
         <button onClick={openCreateModal} className="w-full sm:w-auto bg-[#92d050] text-slate-900 px-4 py-2.5 rounded text-sm flex justify-center items-center gap-2 hover:bg-[#82c040] shadow-sm font-bold whitespace-nowrap transition-colors">
           <Plus size={18} /> 新規顧客登録
         </button>
@@ -192,7 +220,6 @@ export default function CustomerList() {
               <tr key={c.id} className="hover:bg-[#f4fce8] transition-colors">
                 <td className="p-3 font-mono text-xs text-slate-500">{c.customer_code}</td>
                 <td className="p-3">
-                  {/* リンク色変更 (視認性のため少し濃い緑) */}
                   <Link href={`/customers/${c.id}`} className="font-bold text-[#659038] hover:underline cursor-pointer text-base block">{c.name}</Link>
                   <span className="inline-block text-[10px] px-1.5 py-0.5 bg-slate-100 border rounded text-slate-500 mt-1">{c.type}</span>
                 </td>
@@ -298,13 +325,13 @@ export default function CustomerList() {
               <form id="customerForm" onSubmit={handleSubmit} className="space-y-6">
                 <div>
                   <h3 className="text-xs font-bold text-[#659038] uppercase tracking-wider mb-3 border-b border-[#92d050]/30 pb-1 flex items-center gap-1"><Layers size={14}/> 基本情報</h3>
-                  {/* ...フォーム内容は変更なし... */}
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">顧客ID (自動)</label>
-                      <input type="text" className="w-full text-sm border border-slate-300 rounded px-2 py-1.5 bg-slate-50"
-                        value={formData.customer_code} onChange={e => setFormData({...formData, customer_code: e.target.value})} placeholder="自動採番" />
+                      <input type="text" className="w-full text-sm border border-slate-300 rounded px-2 py-1.5 bg-slate-100 text-slate-500"
+                        value={formData.customer_code} readOnly placeholder="登録時に自動採番" />
                     </div>
+                    {/* ...他のフォームは変更なし... */}
                     <div className="md:col-span-2">
                       <label className="block text-xs font-bold text-slate-700 mb-1">顧客名 (会社名/氏名) <span className="text-red-500">*</span></label>
                       <input required type="text" className="w-full text-sm border border-slate-300 rounded px-2 py-1.5 focus:border-[#92d050] focus:ring-1 focus:ring-[#92d050] outline-none"
