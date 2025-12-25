@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/utils/supabase';
-import { Plus, Search, MapPin, Mail, Phone, User, X, Edit, Trash2, Building, Layers } from 'lucide-react';
+import { Plus, Search, MapPin, Mail, Phone, User, X, Edit, Trash2, Building, Layers, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 
 type Customer = {
@@ -35,7 +35,7 @@ export default function CustomerList() {
   const [editingId, setEditingId] = useState<number | null>(null);
   
   const initialFormState = {
-    customer_code: '', // ここは自動入力されるので空でOK
+    customer_code: '',
     name: '',
     type: '企業',
     contact_person: '',
@@ -120,18 +120,14 @@ export default function CustomerList() {
     const year = now.getFullYear();
     const month = (now.getMonth() + 1).toString().padStart(2, '0');
     const day = now.getDate().toString().padStart(2, '0');
-    
-    // 令和計算 (2025年 - 2018 = 7)
     const reiwa = year - 2018;
     const prefix = `R${reiwa}${month}${day}`;
 
-    // 今日すでに何件登録されているかDBを検索
     const { count } = await supabase
       .from('customers')
       .select('*', { count: 'exact', head: true })
-      .ilike('customer_code', `${prefix}%`); // R71225...で始まるものをカウント
+      .ilike('customer_code', `${prefix}%`);
     
-    // 現在の件数 + 1 を連番にする
     const nextNum = (count || 0) + 1;
     return `${prefix}${nextNum}`;
   };
@@ -140,8 +136,6 @@ export default function CustomerList() {
     e.preventDefault();
     
     let codeToSave = formData.customer_code;
-    
-    // 新規登録かつコードが空の場合、新しいIDを生成する
     if (!isEditMode && !codeToSave) {
       codeToSave = await generateNewId();
     }
@@ -202,6 +196,7 @@ export default function CustomerList() {
         </div>
       </div>
 
+      {/* --- PC用テーブル --- */}
       <div className="hidden md:block flex-1 overflow-auto bg-white rounded border border-slate-200 shadow-sm">
         <table className="w-full text-left border-collapse whitespace-nowrap">
           <thead className="bg-slate-100 border-b border-slate-200 text-slate-600 text-xs font-bold sticky top-0 z-10">
@@ -230,13 +225,37 @@ export default function CustomerList() {
                   <div className="flex items-center gap-1.5 font-medium text-slate-700"><User size={14} className="text-slate-400" />{c.contact_person}</div>
                   {c.department && <div className="text-xs text-slate-500 pl-5 mt-0.5">{c.department}</div>}
                 </td>
-                <td className="p-3 space-y-1">
-                  <div className="flex items-center gap-1.5 text-xs"><Mail size={12} className="text-slate-400" /><span className="truncate max-w-[150px]">{c.email || '-'}</span></div>
-                  <div className="flex items-center gap-1.5 text-xs"><Phone size={12} className="text-slate-400" />{c.phone || '-'}</div>
+                <td className="p-3 space-y-1.5">
+                  {/* メールリンク */}
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <Mail size={12} className="text-slate-400 shrink-0" />
+                    {c.email ? (
+                      <a href={`mailto:${c.email}`} className="text-[#659038] hover:underline truncate max-w-[150px]">{c.email}</a>
+                    ) : <span className="text-slate-400">-</span>}
+                  </div>
+                  {/* 電話リンク */}
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <Phone size={12} className="text-slate-400 shrink-0" />
+                    {c.phone ? (
+                      <a href={`tel:${c.phone}`} className="text-[#659038] hover:underline">{c.phone}</a>
+                    ) : <span className="text-slate-400">-</span>}
+                  </div>
                 </td>
                 <td className="p-3">
                    <div className="text-xs text-slate-500 mb-0.5">[{c.region}]</div>
-                   <div className="flex items-start gap-1 text-xs truncate max-w-[180px]"><MapPin size={12} className="mt-0.5 text-slate-400 shrink-0" />{c.address || '-'}</div>
+                   <div className="flex items-start gap-1 text-xs truncate max-w-[180px]">
+                     <MapPin size={12} className="mt-0.5 text-slate-400 shrink-0" />
+                     {c.address ? (
+                       <a 
+                         href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((c.region || '') + c.address)}`} 
+                         target="_blank" 
+                         rel="noopener noreferrer"
+                         className="hover:text-[#659038] hover:underline"
+                       >
+                         {c.address}
+                       </a>
+                     ) : <span className="text-slate-400">-</span>}
+                   </div>
                 </td>
                 <td className="p-3 text-center">
                   <div className="flex items-center justify-center gap-2">
@@ -254,6 +273,7 @@ export default function CustomerList() {
         </table>
       </div>
 
+      {/* --- スマホ用カード --- */}
       <div className="md:hidden space-y-4">
         {filteredCustomers.map((c) => (
           <div key={c.id} className="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
@@ -273,23 +293,45 @@ export default function CustomerList() {
               </div>
             </div>
 
-            <div className="space-y-2 text-sm text-slate-600 mb-4">
+            <div className="space-y-3 text-sm text-slate-600 mb-4">
               <div className="flex items-center gap-2">
                 <User size={14} className="text-slate-400 shrink-0" />
                 <span className="font-medium text-slate-800">{c.contact_person}</span>
                 {c.department && <span className="text-xs text-slate-500">({c.department})</span>}
               </div>
+
+              {/* 電話リンク */}
               <div className="flex items-center gap-2">
                 <Phone size={14} className="text-slate-400 shrink-0" />
-                <a href={`tel:${c.phone}`} className="hover:text-[#659038] underline-offset-2">{c.phone || '-'}</a>
+                {c.phone ? (
+                  <a href={`tel:${c.phone}`} className="text-[#659038] hover:underline font-bold tracking-wide">{c.phone}</a>
+                ) : <span>-</span>}
               </div>
+
+              {/* メールリンク */}
               <div className="flex items-center gap-2">
                 <Mail size={14} className="text-slate-400 shrink-0" />
-                <span className="truncate">{c.email || '-'}</span>
+                {c.email ? (
+                  <a href={`mailto:${c.email}`} className="text-[#659038] hover:underline truncate">{c.email}</a>
+                ) : <span>-</span>}
               </div>
+
+              {/* マップリンク */}
               <div className="flex items-start gap-2">
                 <MapPin size={14} className="text-slate-400 shrink-0 mt-0.5" />
-                <span>{c.region} {c.address}</span>
+                <span className="flex-1">
+                  {c.region} {' '}
+                  {c.address ? (
+                    <a 
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((c.region || '') + c.address)}`} 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="text-slate-800 hover:text-[#659038] underline decoration-slate-300 underline-offset-2"
+                    >
+                      {c.address} <ExternalLink size={10} className="inline ml-0.5 mb-0.5 text-slate-400"/>
+                    </a>
+                  ) : '-'}
+                </span>
               </div>
             </div>
 
@@ -331,7 +373,6 @@ export default function CustomerList() {
                       <input type="text" className="w-full text-sm border border-slate-300 rounded px-2 py-1.5 bg-slate-100 text-slate-500"
                         value={formData.customer_code} readOnly placeholder="登録時に自動採番" />
                     </div>
-                    {/* ...他のフォームは変更なし... */}
                     <div className="md:col-span-2">
                       <label className="block text-xs font-bold text-slate-700 mb-1">顧客名 (会社名/氏名) <span className="text-red-500">*</span></label>
                       <input required type="text" className="w-full text-sm border border-slate-300 rounded px-2 py-1.5 focus:border-[#92d050] focus:ring-1 focus:ring-[#92d050] outline-none"
@@ -370,7 +411,6 @@ export default function CustomerList() {
                   </div>
                 </div>
 
-                {/* 2. 担当者・連絡先 */}
                 <div>
                   <h3 className="text-xs font-bold text-[#659038] uppercase tracking-wider mb-3 border-b border-[#92d050]/30 pb-1 flex items-center gap-1"><User size={14}/> 担当者・連絡先</h3>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -397,7 +437,6 @@ export default function CustomerList() {
                   </div>
                 </div>
 
-                {/* 3. 住所情報 */}
                 <div>
                   <h3 className="text-xs font-bold text-[#659038] uppercase tracking-wider mb-3 border-b border-[#92d050]/30 pb-1 flex items-center gap-1"><MapPin size={14}/> 住所情報</h3>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -420,7 +459,6 @@ export default function CustomerList() {
                   </div>
                 </div>
 
-                {/* 4. 管理情報 */}
                 <div>
                   <h3 className="text-xs font-bold text-[#659038] uppercase tracking-wider mb-3 border-b border-[#92d050]/30 pb-1 flex items-center gap-1"><Building size={14}/> 管理情報</h3>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
