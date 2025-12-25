@@ -1,8 +1,7 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root {
+  /* システム全体の色設定 */
   --foreground-rgb: 15, 23, 42;
   --background-start-rgb: 248, 250, 252;
   --background-end-rgb: 255, 255, 255;
@@ -19,7 +18,7 @@ body {
   }
 }
 
-/* フォームの文字サイズ調整（iPhone拡大防止） */
+/* スマホでの入力フォーム拡大防止 */
 @layer base {
   input, select, textarea {
     font-size: 16px !important; 
