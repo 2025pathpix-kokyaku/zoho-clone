@@ -5,7 +5,6 @@ import { supabase } from '@/utils/supabase';
 import { Plus, Search, MapPin, Mail, Phone, User, X, Edit, Trash2, Building, Layers } from 'lucide-react';
 import Link from 'next/link';
 
-// 型定義
 type Customer = {
   id: number;
   customer_code: string;
@@ -17,8 +16,8 @@ type Customer = {
   phone: string;
   address: string;
   region: string;
-  last_contact_date: string | null; // null許容に変更
-  registration_date: string | null; // null許容に変更
+  last_contact_date: string | null;
+  registration_date: string | null;
   owner: string;
   referral_source: string;
   referral_details: string;
@@ -35,7 +34,6 @@ export default function CustomerList() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   
-  // フォーム初期値
   const initialFormState = {
     customer_code: '',
     name: '',
@@ -73,10 +71,8 @@ export default function CustomerList() {
     fetchCustomers();
   }, []);
 
-  // --- 削除機能 ---
   const handleDelete = async (id: number, name: string) => {
     if (!window.confirm(`「${name}」を削除してもよろしいですか？`)) return;
-
     try {
       const { error } = await supabase.from('customers').delete().eq('id', id);
       if (error) throw error;
@@ -86,7 +82,6 @@ export default function CustomerList() {
     }
   };
 
-  // --- 編集モードを開く ---
   const openEditModal = (customer: Customer) => {
     setIsEditMode(true);
     setEditingId(customer.id);
@@ -106,13 +101,12 @@ export default function CustomerList() {
       rank: customer.rank || 'C',
       status: customer.status || 'Active',
       image_url: customer.image_url || '',
-      last_contact_date: customer.last_contact_date || '', // nullなら空文字にする
-      registration_date: customer.registration_date || ''  // nullなら空文字にする
+      last_contact_date: customer.last_contact_date || '',
+      registration_date: customer.registration_date || ''
     });
     setIsModalOpen(true);
   };
 
-  // --- 新規登録モードを開く ---
   const openCreateModal = () => {
     setIsEditMode(false);
     setEditingId(null);
@@ -120,44 +114,29 @@ export default function CustomerList() {
     setIsModalOpen(true);
   };
 
-  // --- 送信（新規・更新） ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // 日付が空文字("")の場合は null に変換して送信する（これがエラーの修正箇所）
     const cleanData = {
       ...formData,
       customer_code: formData.customer_code || `C-${Date.now().toString().slice(-6)}`,
-      // 日付ロジック修正：空なら今日を入れるか、nullにするか
       registration_date: formData.registration_date || new Date().toISOString().split('T')[0],
       last_contact_date: formData.last_contact_date === '' ? null : formData.last_contact_date,
     };
 
     let error;
-
     try {
       if (isEditMode && editingId) {
-        // 更新
-        const { error: updateError } = await supabase
-          .from('customers')
-          .update(cleanData)
-          .eq('id', editingId);
+        const { error: updateError } = await supabase.from('customers').update(cleanData).eq('id', editingId);
         error = updateError;
       } else {
-        // 新規
-        const { error: insertError } = await supabase
-          .from('customers')
-          .insert([cleanData]);
+        const { error: insertError } = await supabase.from('customers').insert([cleanData]);
         error = insertError;
       }
-
       if (error) throw error;
-
       await fetchCustomers();
       setIsModalOpen(false);
       setFormData(initialFormState);
     } catch (error: any) {
-      console.error(error);
       alert('保存エラー: ' + (error.message || '不明なエラー'));
     }
   };
@@ -171,34 +150,30 @@ export default function CustomerList() {
 
   return (
     <div className="p-4 h-full flex flex-col max-w-7xl mx-auto w-full">
-      {/* --- ヘッダーエリア --- */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4 shrink-0">
         <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-          <Building size={24} className="text-blue-600"/> 顧客マスター一覧
+          {/* アイコン色変更 */}
+          <Building size={24} className="text-[#92d050]"/> 顧客マスター一覧
         </h1>
-        <button onClick={openCreateModal} className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2.5 rounded text-sm flex justify-center items-center gap-2 hover:bg-blue-700 shadow-sm font-bold whitespace-nowrap transition-colors">
+        {/* ボタン色変更 (背景#92d050, 文字黒) */}
+        <button onClick={openCreateModal} className="w-full sm:w-auto bg-[#92d050] text-slate-900 px-4 py-2.5 rounded text-sm flex justify-center items-center gap-2 hover:bg-[#82c040] shadow-sm font-bold whitespace-nowrap transition-colors">
           <Plus size={18} /> 新規顧客登録
         </button>
       </div>
 
-      {/* --- 検索ボックス --- */}
       <div className="bg-white p-2 rounded shadow-sm border border-slate-200 mb-4 shrink-0">
         <div className="relative">
           <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
           <input 
             type="text" 
             placeholder="キーワード検索（会社名、担当者名など）..." 
-            className="w-full pl-9 pr-4 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all" 
+            className="w-full pl-9 pr-4 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#92d050] focus:border-[#92d050] transition-all" 
             value={searchTerm} 
             onChange={(e) => setSearchTerm(e.target.value)} 
           />
         </div>
       </div>
 
-      {/* ========================================================================
-          【1】PC・タブレット用表示 (テーブル形式)
-          ※編集・削除ボタンを追加済み
-         ======================================================================== */}
       <div className="hidden md:block flex-1 overflow-auto bg-white rounded border border-slate-200 shadow-sm">
         <table className="w-full text-left border-collapse whitespace-nowrap">
           <thead className="bg-slate-100 border-b border-slate-200 text-slate-600 text-xs font-bold sticky top-0 z-10">
@@ -214,14 +189,15 @@ export default function CustomerList() {
           </thead>
           <tbody className="text-sm text-slate-700 divide-y divide-slate-100">
             {filteredCustomers.map((c) => (
-              <tr key={c.id} className="hover:bg-blue-50 transition-colors">
+              <tr key={c.id} className="hover:bg-[#f4fce8] transition-colors">
                 <td className="p-3 font-mono text-xs text-slate-500">{c.customer_code}</td>
                 <td className="p-3">
-                  <Link href={`/customers/${c.id}`} className="font-bold text-blue-600 hover:underline cursor-pointer text-base block">{c.name}</Link>
+                  {/* リンク色変更 (視認性のため少し濃い緑) */}
+                  <Link href={`/customers/${c.id}`} className="font-bold text-[#659038] hover:underline cursor-pointer text-base block">{c.name}</Link>
                   <span className="inline-block text-[10px] px-1.5 py-0.5 bg-slate-100 border rounded text-slate-500 mt-1">{c.type}</span>
                 </td>
                 <td className="p-3">
-                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold text-center w-8 ${c.rank === 'S' || c.rank === 'A' ? 'bg-orange-100 text-orange-700' : c.rank === 'B' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>{c.rank}</span>
+                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold text-center w-8 ${c.rank === 'S' || c.rank === 'A' ? 'bg-orange-100 text-orange-700' : c.rank === 'B' ? 'bg-[#92d050]/20 text-[#558028]' : 'bg-slate-100 text-slate-500'}`}>{c.rank}</span>
                 </td>
                 <td className="p-3">
                   <div className="flex items-center gap-1.5 font-medium text-slate-700"><User size={14} className="text-slate-400" />{c.contact_person}</div>
@@ -235,10 +211,9 @@ export default function CustomerList() {
                    <div className="text-xs text-slate-500 mb-0.5">[{c.region}]</div>
                    <div className="flex items-start gap-1 text-xs truncate max-w-[180px]"><MapPin size={12} className="mt-0.5 text-slate-400 shrink-0" />{c.address || '-'}</div>
                 </td>
-                {/* 操作ボタン */}
                 <td className="p-3 text-center">
                   <div className="flex items-center justify-center gap-2">
-                    <button onClick={() => openEditModal(c)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded transition-colors" title="編集">
+                    <button onClick={() => openEditModal(c)} className="p-1.5 text-slate-500 hover:text-[#659038] hover:bg-[#92d050]/20 rounded transition-colors" title="編集">
                       <Edit size={18} />
                     </button>
                     <button onClick={() => handleDelete(c.id, c.name)} className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-100 rounded transition-colors" title="削除">
@@ -252,15 +227,12 @@ export default function CustomerList() {
         </table>
       </div>
 
-      {/* ========================================================================
-          【2】スマホ用カード表示
-         ======================================================================== */}
       <div className="md:hidden space-y-4">
         {filteredCustomers.map((c) => (
           <div key={c.id} className="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
             <div className="flex justify-between items-start mb-3 border-b border-slate-100 pb-2">
               <div>
-                <Link href={`/customers/${c.id}`} className="text-lg font-bold text-blue-600 block mb-1">
+                <Link href={`/customers/${c.id}`} className="text-lg font-bold text-[#659038] block mb-1">
                   {c.name}
                 </Link>
                 <div className="flex gap-2 items-center">
@@ -282,7 +254,7 @@ export default function CustomerList() {
               </div>
               <div className="flex items-center gap-2">
                 <Phone size={14} className="text-slate-400 shrink-0" />
-                <a href={`tel:${c.phone}`} className="hover:text-blue-600 underline-offset-2">{c.phone || '-'}</a>
+                <a href={`tel:${c.phone}`} className="hover:text-[#659038] underline-offset-2">{c.phone || '-'}</a>
               </div>
               <div className="flex items-center gap-2">
                 <Mail size={14} className="text-slate-400 shrink-0" />
@@ -297,7 +269,7 @@ export default function CustomerList() {
             <div className="flex gap-2 justify-end pt-2 border-t border-slate-100">
               <button 
                 onClick={() => openEditModal(c)} 
-                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-slate-50 text-slate-600 border border-slate-200 rounded hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-slate-50 text-slate-600 border border-slate-200 rounded hover:bg-[#92d050]/20 hover:text-[#659038] hover:border-[#92d050]/50 transition-colors"
               >
                 <Edit size={14} /> 編集
               </button>
@@ -312,7 +284,6 @@ export default function CustomerList() {
         ))}
       </div>
 
-      {/* --- モーダルエリア --- */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden animate-in zoom-in duration-200">
@@ -325,9 +296,9 @@ export default function CustomerList() {
             
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-white">
               <form id="customerForm" onSubmit={handleSubmit} className="space-y-6">
-                {/* 1. 基本情報 */}
                 <div>
-                  <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-3 border-b border-blue-100 pb-1 flex items-center gap-1"><Layers size={14}/> 基本情報</h3>
+                  <h3 className="text-xs font-bold text-[#659038] uppercase tracking-wider mb-3 border-b border-[#92d050]/30 pb-1 flex items-center gap-1"><Layers size={14}/> 基本情報</h3>
+                  {/* ...フォーム内容は変更なし... */}
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">顧客ID (自動)</label>
@@ -336,7 +307,7 @@ export default function CustomerList() {
                     </div>
                     <div className="md:col-span-2">
                       <label className="block text-xs font-bold text-slate-700 mb-1">顧客名 (会社名/氏名) <span className="text-red-500">*</span></label>
-                      <input required type="text" className="w-full text-sm border border-slate-300 rounded px-2 py-1.5"
+                      <input required type="text" className="w-full text-sm border border-slate-300 rounded px-2 py-1.5 focus:border-[#92d050] focus:ring-1 focus:ring-[#92d050] outline-none"
                         value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                     </div>
                     <div>
@@ -374,7 +345,7 @@ export default function CustomerList() {
 
                 {/* 2. 担当者・連絡先 */}
                 <div>
-                  <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-3 border-b border-blue-100 pb-1 flex items-center gap-1"><User size={14}/> 担当者・連絡先</h3>
+                  <h3 className="text-xs font-bold text-[#659038] uppercase tracking-wider mb-3 border-b border-[#92d050]/30 pb-1 flex items-center gap-1"><User size={14}/> 担当者・連絡先</h3>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">先方担当者名 <span className="text-red-500">*</span></label>
@@ -401,7 +372,7 @@ export default function CustomerList() {
 
                 {/* 3. 住所情報 */}
                 <div>
-                  <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-3 border-b border-blue-100 pb-1 flex items-center gap-1"><MapPin size={14}/> 住所情報</h3>
+                  <h3 className="text-xs font-bold text-[#659038] uppercase tracking-wider mb-3 border-b border-[#92d050]/30 pb-1 flex items-center gap-1"><MapPin size={14}/> 住所情報</h3>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">地域</label>
@@ -424,7 +395,7 @@ export default function CustomerList() {
 
                 {/* 4. 管理情報 */}
                 <div>
-                  <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-3 border-b border-blue-100 pb-1 flex items-center gap-1"><Building size={14}/> 管理情報</h3>
+                  <h3 className="text-xs font-bold text-[#659038] uppercase tracking-wider mb-3 border-b border-[#92d050]/30 pb-1 flex items-center gap-1"><Building size={14}/> 管理情報</h3>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">自社担当 (Owner)</label>
@@ -439,12 +410,12 @@ export default function CustomerList() {
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">登録日</label>
                       <input type="date" className="w-full text-sm border border-slate-300 rounded px-2 py-1.5"
-                        value={formData.registration_date} onChange={e => setFormData({...formData, registration_date: e.target.value})} />
+                        value={formData.registration_date || ''} onChange={e => setFormData({...formData, registration_date: e.target.value})} />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">最終接触日</label>
                       <input type="date" className="w-full text-sm border border-slate-300 rounded px-2 py-1.5"
-                        value={formData.last_contact_date} onChange={e => setFormData({...formData, last_contact_date: e.target.value})} />
+                        value={formData.last_contact_date || ''} onChange={e => setFormData({...formData, last_contact_date: e.target.value})} />
                     </div>
                     <div className="md:col-span-4">
                       <label className="block text-xs font-bold text-slate-700 mb-1">紹介経緯・メモ</label>
@@ -458,7 +429,7 @@ export default function CustomerList() {
 
             <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">
               <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-200 rounded font-bold transition-colors">キャンセル</button>
-              <button type="submit" form="customerForm" className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 font-bold shadow-md">
+              <button type="submit" form="customerForm" className="px-4 py-2 text-sm bg-[#92d050] text-slate-900 rounded hover:bg-[#82c040] font-bold shadow-md">
                 {isEditMode ? '変更を保存' : '新規保存'}
               </button>
             </div>
