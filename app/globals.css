@@ -3,19 +3,14 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
+  --foreground-rgb: 15, 23, 42; /* slate-900 */
+  --background-start-rgb: 248, 250, 252; /* slate-50 */
   --background-end-rgb: 255, 255, 255;
 }
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  background: rgb(var(--background-start-rgb));
 }
 
 @layer utilities {
@@ -24,25 +19,9 @@ body {
   }
 }
 
-/* --- スマホ・iPhone対策 (完全版) --- */
-/* 入力フォームのスタイルを強制的に上書きして、文字が見えるようにする設定 */
-input, select, textarea {
-  /* 外見をリセット */
-  -webkit-appearance: none;
-  appearance: none;
-  
-  /* 色の強制指定（背景白、文字黒） */
-  background-color: #ffffff !important;
-  color: #000000 !important;
-  -webkit-text-fill-color: #000000 !important;
-  
-  /* 枠線を見やすく */
-  border: 1px solid #cbd5e1;
-}
-
-/* プレースホルダー（入力前の薄い文字）の色 */
-::placeholder {
-  color: #94a3b8 !important;
-  -webkit-text-fill-color: #94a3b8 !important;
-  opacity: 1;
+/* iPhone/スマホでの入力ズーム防止とスタイル調整 */
+@layer base {
+  input, select, textarea {
+    font-size: 16px !important; 
+  }
 }
