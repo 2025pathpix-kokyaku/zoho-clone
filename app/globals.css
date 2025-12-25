@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 15, 23, 42; /* slate-900 */
-  --background-start-rgb: 248, 250, 252; /* slate-50 */
+  --foreground-rgb: 15, 23, 42;
+  --background-start-rgb: 248, 250, 252;
   --background-end-rgb: 255, 255, 255;
 }
 
@@ -19,7 +19,7 @@ body {
   }
 }
 
-/* iPhone/スマホでの入力ズーム防止とスタイル調整 */
+/* フォームの文字サイズ調整（iPhone拡大防止） */
 @layer base {
   input, select, textarea {
     font-size: 16px !important; 
