@@ -109,4 +109,80 @@ export default function Dashboard() {
           </div>
           <div>
             <p className="text-sm text-slate-500 font-bold">成約数 (契約)</p>
-            <p className="text-2xl font-bold text-sla
+            <p className="text-2xl font-bold text-slate-800">{stats.wonDeals} <span className="text-sm text-slate-400 font-normal">件</span></p>
+          </div>
+        </div>
+
+        {/* カード3: 平均確度 */}
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-4">
+          <div className="p-3 bg-[#92d050]/20 text-[#659038] rounded-lg">
+            <Activity size={24} />
+          </div>
+          <div>
+            <p className="text-sm text-slate-500 font-bold">平均確度</p>
+            <p className="text-2xl font-bold text-slate-800">{stats.avgProbability}%</p>
+          </div>
+        </div>
+
+        {/* カード4: 全案件数 */}
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-4">
+          <div className="p-3 bg-[#92d050]/20 text-[#659038] rounded-lg">
+            <Users size={24} />
+          </div>
+          <div>
+            <p className="text-sm text-slate-500 font-bold">全案件数</p>
+            <p className="text-2xl font-bold text-slate-800">{stats.totalDeals} <span className="text-sm text-slate-400 font-normal">件</span></p>
+          </div>
+        </div>
+      </div>
+
+      {/* グラフエリア */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        
+        {/* 左: フェーズ別案件数 (棒グラフ) */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+          <h2 className="text-lg font-bold text-slate-800 mb-4 border-l-4 border-[#92d050] pl-3">フェーズ別 案件数</h2>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={phaseData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" tick={{fontSize: 12}} />
+                <YAxis allowDecimals={false} />
+                <Tooltip cursor={{fill: '#f1f5f9'}} />
+                {/* 棒グラフの色をコーポレートカラーに変更 */}
+                <Bar dataKey="count" name="件数" fill="#92d050" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* 右: 顧客ランク分布 (円グラフ) */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+          <h2 className="text-lg font-bold text-slate-800 mb-4 border-l-4 border-[#92d050] pl-3">顧客ランク割合</h2>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={rankData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {rankData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
