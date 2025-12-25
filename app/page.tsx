@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/utils/supabase';
-import { Plus, Building, X, Calendar, User, LayoutGrid, List, Percent, Edit, Trash2 } from 'lucide-react';
+import { Plus, Building, X, Calendar, LayoutGrid, List, Edit, Trash2, ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 type Customer = {
   id: number;
@@ -25,8 +25,13 @@ type Deal = {
   created_at: string;
 };
 
-// フェーズ定義
-const PHASE_MAP: { [key: string]: string } = {
+// フェーズ定義（順番が重要なので配列として管理）
+const PHASE_ORDER = [
+  'リード', '接触済', '情報提供', 'ヒアリング', '提案準備', 
+  '提案済', '検討中', '保留', '契約', '見送り'
+];
+
+const PHASE_STYLES: { [key: string]: string } = {
   'リード':      'bg-slate-50 border-slate-200 border-t-4 border-t-slate-400',
   '接触済':      'bg-slate-50 border-slate-200 border-t-4 border-t-[#92d050]',
   '情報提供':    'bg-[#f4fce8] border-[#92d050]/30 border-t-4 border-t-[#82c040]',
@@ -38,7 +43,6 @@ const PHASE_MAP: { [key: string]: string } = {
   '契約':        'bg-green-50 border-green-200 border-t-4 border-t-green-600',
   '見送り':      'bg-gray-100 border-gray-300 border-t-4 border-t-gray-500'
 };
-const PHASES = Object.keys(PHASE_MAP);
 
 export default function CRMDashboard() {
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -84,6 +88,7 @@ export default function CRMDashboard() {
     fetchData();
   }, []);
 
+  // --- ドラッグ＆ドロップ処理 (PC用) ---
   const handleDragStart = (e: React.DragEvent, dealId: number) => {
     setDraggedDealId(dealId);
     e.dataTransfer.effectAllowed = 'move';
@@ -100,9 +105,34 @@ export default function CRMDashboard() {
   const handleDrop = async (e: React.DragEvent, targetPhase: string) => {
     e.preventDefault();
     if (draggedDealId === null) return;
-    setDeals(prev => prev.map(deal => deal.id === draggedDealId ? { ...deal, phase: targetPhase } : deal));
-    const { error } = await supabase.from('deals').update({ phase: targetPhase }).eq('id', draggedDealId);
-    if (error) { alert('更新失敗'); fetchData(); }
+    updateDealPhase(draggedDealId, targetPhase);
+  };
+
+  // --- フェーズ移動処理 (共通) ---
+  const updateDealPhase = async (id: number, newPhase: string) => {
+    // 画面上の表示を即時更新
+    setDeals(prev => prev.map(deal => deal.id === id ? { ...deal, phase: newPhase } : deal));
+    // DB更新
+    const { error } = await supabase.from('deals').update({ phase: newPhase }).eq('id', id);
+    if (error) { 
+      alert('更新失敗'); 
+      fetchData(); // 失敗したら元に戻すために再取得
+    }
+  };
+
+  // --- ボタンでの移動機能 (スマホ/iPad用) ---
+  const movePhase = (e: React.MouseEvent, dealId: number, currentPhase: string, direction: 'prev' | 'next') => {
+    e.stopPropagation(); // カードクリックイベントを止める
+    const currentIndex = PHASE_ORDER.indexOf(currentPhase);
+    if (currentIndex === -1) return;
+
+    let newIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
+    
+    // 範囲外チェック
+    if (newIndex < 0 || newIndex >= PHASE_ORDER.length) return;
+
+    const newPhase = PHASE_ORDER[newIndex];
+    updateDealPhase(dealId, newPhase);
   };
 
   // --- 削除機能 ---
@@ -117,7 +147,6 @@ export default function CRMDashboard() {
     }
   };
 
-  // --- 編集モードを開く ---
   const openEditModal = (deal: Deal) => {
     setIsEditMode(true);
     setEditingId(deal.id);
@@ -155,11 +184,9 @@ export default function CRMDashboard() {
     let error;
     try {
       if (isEditMode && editingId) {
-        // 更新
         const { error: updateError } = await supabase.from('deals').update(payload).eq('id', editingId);
         error = updateError;
       } else {
-        // 新規
         const { error: insertError } = await supabase.from('deals').insert([payload]);
         error = insertError;
       }
@@ -201,15 +228,14 @@ export default function CRMDashboard() {
         </div>
       </div>
 
-      {/* --- カンバン表示モード --- */}
       {viewMode === 'kanban' && (
         <div className="flex gap-4 h-full overflow-x-auto overflow-y-hidden pb-4 items-start">
-          {PHASES.map((phase) => (
+          {PHASE_ORDER.map((phase, phaseIndex) => (
             <div 
               key={phase}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, phase)}
-              className={`min-w-[280px] w-[280px] p-3 rounded-lg flex flex-col h-full border shadow-sm transition-colors ${PHASE_MAP[phase]}`}
+              className={`min-w-[280px] w-[280px] p-3 rounded-lg flex flex-col h-full border shadow-sm transition-colors ${PHASE_STYLES[phase]}`}
             >
               <h2 className="font-bold text-slate-700 mb-3 px-1 flex justify-between items-center text-sm">
                 {phase}
@@ -227,10 +253,11 @@ export default function CRMDashboard() {
                       draggable="true"
                       onDragStart={(e) => handleDragStart(e, deal.id)}
                       onDragEnd={handleDragEnd}
-                      className="bg-white p-3 rounded shadow-sm border border-slate-100 hover:shadow-md hover:border-[#92d050] transition-all cursor-grab active:cursor-grabbing group relative"
+                      onClick={() => openEditModal(deal)} // カードクリックで編集
+                      className="bg-white p-3 rounded shadow-sm border border-slate-100 hover:shadow-md hover:border-[#92d050] transition-all cursor-pointer group relative"
                     >
-                      {/* 編集・削除ボタン (ホバー時に表示) */}
-                      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* 右上の編集・削除ボタン */}
+                      <div className="absolute top-2 right-2 flex gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                          <button onClick={(e) => {e.stopPropagation(); openEditModal(deal);}} className="p-1 text-slate-400 hover:text-[#659038] bg-slate-50 rounded hover:bg-[#92d050]/20">
                            <Edit size={12} />
                          </button>
@@ -260,6 +287,34 @@ export default function CRMDashboard() {
                           </span>
                         </div>
                       </div>
+
+                      {/* 【ここを追加】スマホ・iPad用 移動ボタン（カード下部） */}
+                      <div className="flex justify-between mt-3 pt-2 border-t border-dashed border-slate-100">
+                         {/* 左へ移動ボタン（最初のフェーズ以外で表示） */}
+                         {phaseIndex > 0 ? (
+                           <button 
+                             onClick={(e) => movePhase(e, deal.id, phase, 'prev')}
+                             className="text-xs flex items-center gap-1 text-slate-400 hover:text-blue-600 px-2 py-1 rounded hover:bg-blue-50 transition-colors"
+                           >
+                             <ArrowLeft size={12}/> 前へ
+                           </button>
+                         ) : <div></div>}
+
+                         {/* 右へ移動ボタン（最後のフェーズ以外で表示） */}
+                         {phaseIndex < PHASE_ORDER.length - 1 ? (
+                           <button 
+                             onClick={(e) => movePhase(e, deal.id, phase, 'next')}
+                             className="text-xs flex items-center gap-1 text-slate-400 hover:text-[#659038] px-2 py-1 rounded hover:bg-[#92d050]/20 transition-colors"
+                           >
+                             次へ <ArrowRight size={12}/>
+                           </button>
+                         ) : (
+                           <div className="text-xs flex items-center gap-1 text-green-600 font-bold px-2 py-1">
+                             <CheckCircle2 size={12}/> 完了
+                           </div>
+                         )}
+                      </div>
+
                     </div>
                   ))}
               </div>
@@ -268,7 +323,7 @@ export default function CRMDashboard() {
         </div>
       )}
 
-      {/* --- リスト表示モード --- */}
+      {/* --- リスト表示モード (変更なし) --- */}
       {viewMode === 'list' && (
         <div className="flex-1 bg-white rounded-lg shadow border border-slate-200 overflow-hidden flex flex-col">
           <div className="overflow-auto w-full h-full">
@@ -366,7 +421,7 @@ export default function CRMDashboard() {
                   <label className="block text-sm font-bold text-slate-700 mb-1.5">現在のフェーズ</label>
                   <select className="w-full border border-slate-300 rounded-lg px-3 py-2.5 bg-white"
                     value={formData.phase} onChange={(e) => setFormData({ ...formData, phase: e.target.value })}>
-                    {PHASES.map(p => <option key={p} value={p}>{p}</option>)}
+                    {PHASE_ORDER.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
                 </div>
                 <div>
