@@ -17,8 +17,8 @@ type Customer = {
   phone: string;
   address: string;
   region: string;
-  last_contact_date: string;
-  registration_date: string;
+  last_contact_date: string | null; // null許容に変更
+  registration_date: string | null; // null許容に変更
   owner: string;
   referral_source: string;
   referral_details: string;
@@ -80,8 +80,6 @@ export default function CustomerList() {
     try {
       const { error } = await supabase.from('customers').delete().eq('id', id);
       if (error) throw error;
-      
-      // 成功したらリストを更新
       await fetchCustomers();
     } catch (error: any) {
       alert('削除エラー: ' + (error.message || '不明なエラー'));
@@ -108,8 +106,8 @@ export default function CustomerList() {
       rank: customer.rank || 'C',
       status: customer.status || 'Active',
       image_url: customer.image_url || '',
-      last_contact_date: customer.last_contact_date || '',
-      registration_date: customer.registration_date || ''
+      last_contact_date: customer.last_contact_date || '', // nullなら空文字にする
+      registration_date: customer.registration_date || ''  // nullなら空文字にする
     });
     setIsModalOpen(true);
   };
@@ -126,9 +124,14 @@ export default function CustomerList() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const codeToSave = formData.customer_code || `C-${Date.now().toString().slice(-6)}`;
-    const today = new Date().toISOString().split('T')[0];
-    const regDate = formData.registration_date || today;
+    // 日付が空文字("")の場合は null に変換して送信する（これがエラーの修正箇所）
+    const cleanData = {
+      ...formData,
+      customer_code: formData.customer_code || `C-${Date.now().toString().slice(-6)}`,
+      // 日付ロジック修正：空なら今日を入れるか、nullにするか
+      registration_date: formData.registration_date || new Date().toISOString().split('T')[0],
+      last_contact_date: formData.last_contact_date === '' ? null : formData.last_contact_date,
+    };
 
     let error;
 
@@ -137,22 +140,14 @@ export default function CustomerList() {
         // 更新
         const { error: updateError } = await supabase
           .from('customers')
-          .update({
-            ...formData,
-            customer_code: codeToSave,
-            registration_date: regDate
-          })
+          .update(cleanData)
           .eq('id', editingId);
         error = updateError;
       } else {
         // 新規
         const { error: insertError } = await supabase
           .from('customers')
-          .insert([{
-            ...formData,
-            customer_code: codeToSave,
-            registration_date: regDate,
-          }]);
+          .insert([cleanData]);
         error = insertError;
       }
 
@@ -162,6 +157,7 @@ export default function CustomerList() {
       setIsModalOpen(false);
       setFormData(initialFormState);
     } catch (error: any) {
+      console.error(error);
       alert('保存エラー: ' + (error.message || '不明なエラー'));
     }
   };
@@ -201,7 +197,7 @@ export default function CustomerList() {
 
       {/* ========================================================================
           【1】PC・タブレット用表示 (テーブル形式)
-          ※ここに編集・削除ボタンを追加済みです
+          ※編集・削除ボタンを追加済み
          ======================================================================== */}
       <div className="hidden md:block flex-1 overflow-auto bg-white rounded border border-slate-200 shadow-sm">
         <table className="w-full text-left border-collapse whitespace-nowrap">
@@ -213,7 +209,7 @@ export default function CustomerList() {
               <th className="p-3 min-w-[150px]">担当者 / 部署</th>
               <th className="p-3 min-w-[200px]">連絡先</th>
               <th className="p-3 min-w-[200px]">住所 / 地域</th>
-              <th className="p-3 min-w-[100px] text-center">操作</th> {/* ←追加 */}
+              <th className="p-3 min-w-[100px] text-center">操作</th>
             </tr>
           </thead>
           <tbody className="text-sm text-slate-700 divide-y divide-slate-100">
@@ -239,7 +235,7 @@ export default function CustomerList() {
                    <div className="text-xs text-slate-500 mb-0.5">[{c.region}]</div>
                    <div className="flex items-start gap-1 text-xs truncate max-w-[180px]"><MapPin size={12} className="mt-0.5 text-slate-400 shrink-0" />{c.address || '-'}</div>
                 </td>
-                {/* PC版の操作ボタン */}
+                {/* 操作ボタン */}
                 <td className="p-3 text-center">
                   <div className="flex items-center justify-center gap-2">
                     <button onClick={() => openEditModal(c)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded transition-colors" title="編集">
@@ -257,7 +253,7 @@ export default function CustomerList() {
       </div>
 
       {/* ========================================================================
-          【2】スマホ用カード表示 (カード形式)
+          【2】スマホ用カード表示
          ======================================================================== */}
       <div className="md:hidden space-y-4">
         {filteredCustomers.map((c) => (
