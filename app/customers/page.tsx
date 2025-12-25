@@ -77,11 +77,14 @@ export default function CustomerList() {
   const handleDelete = async (id: number, name: string) => {
     if (!window.confirm(`「${name}」を削除してもよろしいですか？`)) return;
 
-    const { error } = await supabase.from('customers').delete().eq('id', id);
-    if (error) {
-      alert('削除できませんでした: ' + error.message);
-    } else {
+    try {
+      const { error } = await supabase.from('customers').delete().eq('id', id);
+      if (error) throw error;
+      
+      // 成功したらリストを更新
       await fetchCustomers();
+    } catch (error: any) {
+      alert('削除エラー: ' + (error.message || '不明なエラー'));
     }
   };
 
@@ -129,33 +132,37 @@ export default function CustomerList() {
 
     let error;
 
-    if (isEditMode && editingId) {
-      const { error: updateError } = await supabase
-        .from('customers')
-        .update({
-          ...formData,
-          customer_code: codeToSave,
-          registration_date: regDate
-        })
-        .eq('id', editingId);
-      error = updateError;
-    } else {
-      const { error: insertError } = await supabase
-        .from('customers')
-        .insert([{
-          ...formData,
-          customer_code: codeToSave,
-          registration_date: regDate,
-        }]);
-      error = insertError;
-    }
+    try {
+      if (isEditMode && editingId) {
+        // 更新
+        const { error: updateError } = await supabase
+          .from('customers')
+          .update({
+            ...formData,
+            customer_code: codeToSave,
+            registration_date: regDate
+          })
+          .eq('id', editingId);
+        error = updateError;
+      } else {
+        // 新規
+        const { error: insertError } = await supabase
+          .from('customers')
+          .insert([{
+            ...formData,
+            customer_code: codeToSave,
+            registration_date: regDate,
+          }]);
+        error = insertError;
+      }
 
-    if (error) {
-      alert('エラー: ' + error.message);
-    } else {
+      if (error) throw error;
+
       await fetchCustomers();
       setIsModalOpen(false);
       setFormData(initialFormState);
+    } catch (error: any) {
+      alert('保存エラー: ' + (error.message || '不明なエラー'));
     }
   };
 
@@ -164,11 +171,11 @@ export default function CustomerList() {
     c.contact_person.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (loading) return <div className="p-10">読み込み中...</div>;
+  if (loading) return <div className="p-10 text-slate-500">データを読み込み中...</div>;
 
   return (
     <div className="p-4 h-full flex flex-col max-w-7xl mx-auto w-full">
-      {/* --- ヘッダーエリア (スマホ対応：縦並び許可) --- */}
+      {/* --- ヘッダーエリア --- */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4 shrink-0">
         <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
           <Building size={24} className="text-blue-600"/> 顧客マスター一覧
@@ -193,7 +200,8 @@ export default function CustomerList() {
       </div>
 
       {/* ========================================================================
-          【1】PC・タブレット用表示 (md以上で表示、スマホで隠す)
+          【1】PC・タブレット用表示 (テーブル形式)
+          ※ここに編集・削除ボタンを追加済みです
          ======================================================================== */}
       <div className="hidden md:block flex-1 overflow-auto bg-white rounded border border-slate-200 shadow-sm">
         <table className="w-full text-left border-collapse whitespace-nowrap">
@@ -205,7 +213,7 @@ export default function CustomerList() {
               <th className="p-3 min-w-[150px]">担当者 / 部署</th>
               <th className="p-3 min-w-[200px]">連絡先</th>
               <th className="p-3 min-w-[200px]">住所 / 地域</th>
-              <th className="p-3 min-w-[100px]">操作</th>
+              <th className="p-3 min-w-[100px] text-center">操作</th> {/* ←追加 */}
             </tr>
           </thead>
           <tbody className="text-sm text-slate-700 divide-y divide-slate-100">
@@ -231,10 +239,15 @@ export default function CustomerList() {
                    <div className="text-xs text-slate-500 mb-0.5">[{c.region}]</div>
                    <div className="flex items-start gap-1 text-xs truncate max-w-[180px]"><MapPin size={12} className="mt-0.5 text-slate-400 shrink-0" />{c.address || '-'}</div>
                 </td>
-                <td className="p-3">
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => openEditModal(c)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="編集"><Edit size={16} /></button>
-                    <button onClick={() => handleDelete(c.id, c.name)} className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="削除"><Trash2 size={16} /></button>
+                {/* PC版の操作ボタン */}
+                <td className="p-3 text-center">
+                  <div className="flex items-center justify-center gap-2">
+                    <button onClick={() => openEditModal(c)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded transition-colors" title="編集">
+                      <Edit size={18} />
+                    </button>
+                    <button onClick={() => handleDelete(c.id, c.name)} className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-100 rounded transition-colors" title="削除">
+                      <Trash2 size={18} />
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -244,12 +257,11 @@ export default function CustomerList() {
       </div>
 
       {/* ========================================================================
-          【2】スマホ用カード表示 (md未満で表示、PCで隠す)
+          【2】スマホ用カード表示 (カード形式)
          ======================================================================== */}
       <div className="md:hidden space-y-4">
         {filteredCustomers.map((c) => (
           <div key={c.id} className="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
-            {/* カード上部：名前とランク */}
             <div className="flex justify-between items-start mb-3 border-b border-slate-100 pb-2">
               <div>
                 <Link href={`/customers/${c.id}`} className="text-lg font-bold text-blue-600 block mb-1">
@@ -266,7 +278,6 @@ export default function CustomerList() {
               </div>
             </div>
 
-            {/* カード中部：詳細情報 */}
             <div className="space-y-2 text-sm text-slate-600 mb-4">
               <div className="flex items-center gap-2">
                 <User size={14} className="text-slate-400 shrink-0" />
@@ -287,7 +298,6 @@ export default function CustomerList() {
               </div>
             </div>
 
-            {/* カード下部：アクションボタン */}
             <div className="flex gap-2 justify-end pt-2 border-t border-slate-100">
               <button 
                 onClick={() => openEditModal(c)} 
