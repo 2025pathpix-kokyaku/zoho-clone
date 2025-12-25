@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/utils/supabase';
-import { Plus, Search, MapPin, Mail, Phone, User, X, Calendar, Clock } from 'lucide-react';
-import Link from 'next/link'; // リンク機能を追加
+import { Plus, Search, MapPin, Mail, Phone, User, X, Calendar, Clock, Edit, Trash2 } from 'lucide-react';
+import Link from 'next/link';
 
 // 型定義
 type Customer = {
@@ -32,6 +32,8 @@ export default function CustomerList() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false); // 編集モードかどうかのフラグ
+  const [editingId, setEditingId] = useState<number | null>(null); // 編集中のID
   
   // フォーム初期値
   const initialFormState = {
@@ -71,17 +73,86 @@ export default function CustomerList() {
     fetchCustomers();
   }, []);
 
+  // --- 削除機能 ---
+  const handleDelete = async (id: number, name: string) => {
+    if (!window.confirm(`「${name}」を削除してもよろしいですか？`)) return;
+
+    const { error } = await supabase.from('customers').delete().eq('id', id);
+    if (error) {
+      alert('削除できませんでした: ' + error.message);
+    } else {
+      await fetchCustomers();
+    }
+  };
+
+  // --- 編集モードを開く ---
+  const openEditModal = (customer: Customer) => {
+    setIsEditMode(true);
+    setEditingId(customer.id);
+    // 既存データをフォームに入れる
+    setFormData({
+      customer_code: customer.customer_code || '',
+      name: customer.name || '',
+      type: customer.type || '企業',
+      contact_person: customer.contact_person || '',
+      department: customer.department || '',
+      email: customer.email || '',
+      phone: customer.phone || '',
+      address: customer.address || '',
+      region: customer.region || '関東',
+      owner: customer.owner || '',
+      referral_source: customer.referral_source || '',
+      referral_details: customer.referral_details || '',
+      rank: customer.rank || 'C',
+      status: customer.status || 'Active',
+      image_url: customer.image_url || '',
+      last_contact_date: customer.last_contact_date || '',
+      registration_date: customer.registration_date || ''
+    });
+    setIsModalOpen(true);
+  };
+
+  // --- 新規登録モードを開く ---
+  const openCreateModal = () => {
+    setIsEditMode(false);
+    setEditingId(null);
+    setFormData(initialFormState);
+    setIsModalOpen(true);
+  };
+
+  // --- 送信（新規・更新） ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // IDと日付の処理
     const codeToSave = formData.customer_code || `C-${Date.now().toString().slice(-6)}`;
     const today = new Date().toISOString().split('T')[0];
     const regDate = formData.registration_date || today;
 
-    const { error } = await supabase.from('customers').insert([{
-      ...formData,
-      customer_code: codeToSave,
-      registration_date: regDate,
-    }]);
+    let error;
+
+    if (isEditMode && editingId) {
+      // 更新処理 (UPDATE)
+      const { error: updateError } = await supabase
+        .from('customers')
+        .update({
+          ...formData,
+          customer_code: codeToSave,
+          registration_date: regDate
+        })
+        .eq('id', editingId);
+      error = updateError;
+    } else {
+      // 新規作成処理 (INSERT)
+      const { error: insertError } = await supabase
+        .from('customers')
+        .insert([{
+          ...formData,
+          customer_code: codeToSave,
+          registration_date: regDate,
+        }]);
+      error = insertError;
+    }
 
     if (error) {
       alert('エラー: ' + error.message);
@@ -101,34 +172,20 @@ export default function CustomerList() {
 
   return (
     <div className="p-4 h-full flex flex-col">
-      {/* ヘッダー */}
       <div className="flex justify-between items-center mb-4 shrink-0">
-        <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-          顧客マスター一覧
-        </h1>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="bg-blue-600 text-white px-3 py-2 rounded text-sm flex items-center gap-2 hover:bg-blue-700 shadow-sm font-bold whitespace-nowrap"
-        >
+        <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">顧客マスター一覧</h1>
+        <button onClick={openCreateModal} className="bg-blue-600 text-white px-3 py-2 rounded text-sm flex items-center gap-2 hover:bg-blue-700 shadow-sm font-bold whitespace-nowrap">
           <Plus size={16} /> 新規顧客登録
         </button>
       </div>
 
-      {/* 検索バー */}
       <div className="bg-white p-2 rounded shadow-sm border border-slate-200 mb-2 shrink-0">
         <div className="relative">
           <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
-          <input 
-            type="text" 
-            placeholder="キーワード検索 (会社名、担当者、IDなど)" 
-            className="w-full pl-9 pr-4 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+          <input type="text" placeholder="キーワード検索..." className="w-full pl-9 pr-4 py-2 text-sm border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
       </div>
 
-      {/* 一覧テーブル */}
       <div className="flex-1 overflow-auto bg-white rounded border border-slate-200 shadow-sm">
         <table className="w-full text-left border-collapse whitespace-nowrap">
           <thead className="bg-slate-100 border-b border-slate-200 text-slate-600 text-xs font-bold sticky top-0 z-10">
@@ -137,85 +194,53 @@ export default function CustomerList() {
               <th className="p-3 min-w-[200px]">顧客名 / タイプ</th>
               <th className="p-3 min-w-[60px]">ランク</th>
               <th className="p-3 min-w-[150px]">担当者 / 部署</th>
-              <th className="p-3 min-w-[200px]">連絡先 (メール/電話)</th>
+              <th className="p-3 min-w-[200px]">連絡先</th>
               <th className="p-3 min-w-[200px]">住所 / 地域</th>
-              <th className="p-3 min-w-[100px]">自社担当</th>
-              <th className="p-3 min-w-[120px]">紹介情報</th>
-              <th className="p-3 min-w-[120px]">日付 (登録/接触)</th>
-              <th className="p-3 min-w-[80px]">状態</th>
+              <th className="p-3 min-w-[100px]">操作</th>
             </tr>
           </thead>
           <tbody className="text-sm text-slate-700 divide-y divide-slate-100">
             {filteredCustomers.map((c) => (
               <tr key={c.id} className="hover:bg-blue-50 transition-colors">
                 <td className="p-3 font-mono text-xs text-slate-500">{c.customer_code}</td>
-                
-                {/* 顧客名をクリック可能に変更 */}
                 <td className="p-3">
-                  <Link href={`/customers/${c.id}`} className="font-bold text-blue-600 hover:underline cursor-pointer text-base block">
-                    {c.name}
-                  </Link>
-                  <span className="inline-block text-[10px] px-1.5 py-0.5 bg-slate-100 border rounded text-slate-500 mt-1">
-                    {c.type}
-                  </span>
+                  <Link href={`/customers/${c.id}`} className="font-bold text-blue-600 hover:underline cursor-pointer text-base block">{c.name}</Link>
+                  <span className="inline-block text-[10px] px-1.5 py-0.5 bg-slate-100 border rounded text-slate-500 mt-1">{c.type}</span>
                 </td>
-
                 <td className="p-3">
-                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold text-center w-8 ${
-                    c.rank === 'S' || c.rank === 'A' ? 'bg-orange-100 text-orange-700' : 
-                    c.rank === 'B' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-500'
-                  }`}>
-                    {c.rank}
-                  </span>
+                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold text-center w-8 ${c.rank === 'S' || c.rank === 'A' ? 'bg-orange-100 text-orange-700' : c.rank === 'B' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>{c.rank}</span>
                 </td>
-
                 <td className="p-3">
-                  <div className="flex items-center gap-1.5 font-medium text-slate-700">
-                    <User size={14} className="text-slate-400" />
-                    {c.contact_person}
-                  </div>
+                  <div className="flex items-center gap-1.5 font-medium text-slate-700"><User size={14} className="text-slate-400" />{c.contact_person}</div>
                   {c.department && <div className="text-xs text-slate-500 pl-5 mt-0.5">{c.department}</div>}
                 </td>
-
                 <td className="p-3 space-y-1">
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <Mail size={12} className="text-slate-400" />
-                    <span className="truncate max-w-[150px]" title={c.email}>{c.email || '-'}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <Phone size={12} className="text-slate-400" />
-                    {c.phone || '-'}
-                  </div>
+                  <div className="flex items-center gap-1.5 text-xs"><Mail size={12} className="text-slate-400" /><span className="truncate max-w-[150px]">{c.email || '-'}</span></div>
+                  <div className="flex items-center gap-1.5 text-xs"><Phone size={12} className="text-slate-400" />{c.phone || '-'}</div>
                 </td>
-
                 <td className="p-3">
                    <div className="text-xs text-slate-500 mb-0.5">[{c.region}]</div>
-                   <div className="flex items-start gap-1 text-xs truncate max-w-[180px]" title={c.address}>
-                     <MapPin size={12} className="mt-0.5 text-slate-400 shrink-0" />
-                     {c.address || '-'}
-                   </div>
+                   <div className="flex items-start gap-1 text-xs truncate max-w-[180px]"><MapPin size={12} className="mt-0.5 text-slate-400 shrink-0" />{c.address || '-'}</div>
                 </td>
-
-                <td className="p-3 text-xs">{c.owner}</td>
-
-                <td className="p-3 text-xs">
-                  <div>元: {c.referral_source || '-'}</div>
-                  <div className="text-slate-400 truncate max-w-[100px]" title={c.referral_details}>
-                    {c.referral_details}
-                  </div>
-                </td>
-
-                <td className="p-3 space-y-1 text-xs text-slate-500">
-                  <div title="登録日"><span className="text-slate-400">登:</span> {c.registration_date}</div>
-                  <div title="最終接触日"><span className="text-slate-400">触:</span> {c.last_contact_date || '-'}</div>
-                </td>
-
+                
+                {/* 操作列（編集・削除） */}
                 <td className="p-3">
-                  <span className={`px-2 py-0.5 rounded text-[10px] ${
-                    c.status === 'Active' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-gray-50 text-gray-500 border border-gray-200'
-                  }`}>
-                    {c.status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => openEditModal(c)} 
+                      className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" 
+                      title="編集"
+                    >
+                      <Edit size={16} />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(c.id, c.name)} 
+                      className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors" 
+                      title="削除"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -223,21 +248,18 @@ export default function CustomerList() {
         </table>
       </div>
 
-      {/* 新規登録モーダル */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden animate-in zoom-in duration-200">
-            
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
-              <h2 className="text-lg font-bold text-slate-800">新規顧客の登録</h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded hover:bg-slate-200">
-                <X size={20} />
-              </button>
+              <h2 className="text-lg font-bold text-slate-800">
+                {isEditMode ? '顧客情報の編集' : '新規顧客の登録'}
+              </h2>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded hover:bg-slate-200"><X size={20} /></button>
             </div>
             
             <div className="flex-1 overflow-y-auto p-6 bg-white">
               <form id="customerForm" onSubmit={handleSubmit} className="space-y-6">
-                
                 {/* 1. 基本情報 */}
                 <div>
                   <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-3 border-b border-blue-100 pb-1">基本情報</h3>
@@ -370,19 +392,9 @@ export default function CustomerList() {
             </div>
 
             <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-200 rounded font-bold transition-colors"
-              >
-                キャンセル
-              </button>
-              <button
-                type="submit"
-                form="customerForm"
-                className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 font-bold shadow-md"
-              >
-                保存する
+              <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-200 rounded font-bold transition-colors">キャンセル</button>
+              <button type="submit" form="customerForm" className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 font-bold shadow-md">
+                {isEditMode ? '変更を保存' : '新規保存'}
               </button>
             </div>
           </div>

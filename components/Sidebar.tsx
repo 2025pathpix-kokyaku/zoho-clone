@@ -31,7 +31,6 @@ export default function Sidebar() {
           </button>
           <span className="font-bold text-lg tracking-wider">My CRM</span>
         </div>
-        {/* 右上のアイコンなどがあればここに追加 */}
       </div>
 
       {/* --- 背景を暗くするオーバーレイ (スマホでメニューが開いている時のみ) --- */}
@@ -43,17 +42,13 @@ export default function Sidebar() {
       )}
 
       {/* --- サイドバー本体 --- */}
-      {/* 
-         mobile: fixedで画面外(-translate-x-full)に隠しておき、isOpenならスライドイン
-         desktop (md): staticで常に表示
-      */}
       <div className={`
         fixed top-0 left-0 h-full w-64 bg-slate-900 text-white z-50 border-r border-slate-800
         transition-transform duration-300 ease-in-out overflow-y-auto
         ${isOpen ? 'translate-x-0' : '-translate-x-full'} 
-        md:translate-x-0 md:static
+        md:translate-x-0 md:static flex flex-col
       `}>
-        <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+        <div className="p-6 border-b border-slate-800 flex justify-between items-center shrink-0">
           <h1 className="text-xl font-bold tracking-wider flex items-center gap-2">
             <span className="text-blue-500 text-2xl">●</span> My CRM
           </h1>
@@ -84,11 +79,20 @@ export default function Sidebar() {
           })}
         </nav>
 
-        <div className="p-4 border-t border-slate-800 mt-auto">
-          <button className="flex items-center gap-3 text-slate-400 hover:text-white px-4 py-2 w-full transition-colors">
+        {/* 設定ボタン (ここを Link に修正しました) */}
+        <div className="p-4 border-t border-slate-800 mt-auto shrink-0">
+          <Link 
+            href="/settings"
+            onClick={handleMenuClick} 
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+              pathname === '/settings'
+                ? 'bg-blue-600 text-white shadow-lg font-bold'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
             <Settings size={20} />
             <span>設定</span>
-          </button>
+          </Link>
         </div>
       </div>
     </>
