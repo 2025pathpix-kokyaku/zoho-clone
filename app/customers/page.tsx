@@ -51,7 +51,7 @@ export default function CustomerList() {
     status: 'Active',
     image_url: '',
     last_contact_date: '',
-    registration_date: ''
+    registration_date: '' // 初期値は空、モーダルを開くときに今日の日付を入れる
   };
 
   const [formData, setFormData] = useState(initialFormState);
@@ -110,24 +110,37 @@ export default function CustomerList() {
   const openCreateModal = () => {
     setIsEditMode(false);
     setEditingId(null);
-    setFormData(initialFormState);
+    // 新規登録時は「登録日」に今日の日付をデフォルトで入れる
+    const today = new Date().toISOString().split('T')[0];
+    setFormData({ ...initialFormState, registration_date: today });
     setIsModalOpen(true);
   };
 
-  // --- ID自動生成ロジック (R712251 形式) ---
-  const generateNewId = async () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = (now.getMonth() + 1).toString().padStart(2, '0');
-    const day = now.getDate().toString().padStart(2, '0');
-    const reiwa = year - 2018;
-    const prefix = `R${reiwa}${month}${day}`;
+  // --- ID自動生成ロジック (指定された日付ベース) ---
+  const generateNewId = async (dateStr: string) => {
+    // dateStr は "2025-12-25" のような形式
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) {
+        // 万が一空の場合は今日の日付で再計算
+        const now = new Date();
+        return generateNewId(now.toISOString().split('T')[0]);
+    }
 
+    const year = parseInt(parts[0], 10);
+    const month = parts[1];
+    const day = parts[2];
+    
+    // 令和計算 (2025 - 2018 = 7)
+    const reiwa = year - 2018;
+    const prefix = `R${reiwa}${month}${day}`; // 例: R71225
+
+    // そのプレフィックスを持つIDが既に何件あるか検索
     const { count } = await supabase
       .from('customers')
       .select('*', { count: 'exact', head: true })
       .ilike('customer_code', `${prefix}%`);
     
+    // 現在の件数 + 1 を連番にする
     const nextNum = (count || 0) + 1;
     return `${prefix}${nextNum}`;
   };
@@ -135,15 +148,20 @@ export default function CustomerList() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // フォームに入力されている登録日を取得 (空なら今日)
+    const targetDate = formData.registration_date || new Date().toISOString().split('T')[0];
+    
     let codeToSave = formData.customer_code;
+    
+    // 新規登録の場合、入力された登録日に基づいてIDを生成
     if (!isEditMode && !codeToSave) {
-      codeToSave = await generateNewId();
+      codeToSave = await generateNewId(targetDate);
     }
 
     const cleanData = {
       ...formData,
       customer_code: codeToSave,
-      registration_date: formData.registration_date || new Date().toISOString().split('T')[0],
+      registration_date: targetDate,
       last_contact_date: formData.last_contact_date === '' ? null : formData.last_contact_date,
     };
 
@@ -226,14 +244,12 @@ export default function CustomerList() {
                   {c.department && <div className="text-xs text-slate-500 pl-5 mt-0.5">{c.department}</div>}
                 </td>
                 <td className="p-3 space-y-1.5">
-                  {/* メールリンク */}
                   <div className="flex items-center gap-1.5 text-xs">
                     <Mail size={12} className="text-slate-400 shrink-0" />
                     {c.email ? (
                       <a href={`mailto:${c.email}`} className="text-[#659038] hover:underline truncate max-w-[150px]">{c.email}</a>
                     ) : <span className="text-slate-400">-</span>}
                   </div>
-                  {/* 電話リンク */}
                   <div className="flex items-center gap-1.5 text-xs">
                     <Phone size={12} className="text-slate-400 shrink-0" />
                     {c.phone ? (
@@ -300,7 +316,6 @@ export default function CustomerList() {
                 {c.department && <span className="text-xs text-slate-500">({c.department})</span>}
               </div>
 
-              {/* 電話リンク */}
               <div className="flex items-center gap-2">
                 <Phone size={14} className="text-slate-400 shrink-0" />
                 {c.phone ? (
@@ -308,7 +323,6 @@ export default function CustomerList() {
                 ) : <span>-</span>}
               </div>
 
-              {/* メールリンク */}
               <div className="flex items-center gap-2">
                 <Mail size={14} className="text-slate-400 shrink-0" />
                 {c.email ? (
@@ -316,7 +330,6 @@ export default function CustomerList() {
                 ) : <span>-</span>}
               </div>
 
-              {/* マップリンク */}
               <div className="flex items-start gap-2">
                 <MapPin size={14} className="text-slate-400 shrink-0 mt-0.5" />
                 <span className="flex-1">
